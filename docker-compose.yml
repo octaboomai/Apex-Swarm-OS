@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  apex-swarm:
+    build: .
+    container_name: apex_swarm_os
+    ports:
+      - "8501:8501"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - AGENCY_ACCESS_CODE=${AGENCY_ACCESS_CODE}
+    volumes:
+      - ./agency_data:/app/data
+    restart: unless-stopped
