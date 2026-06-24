@@ -48,9 +48,9 @@ def get_client_for_model(tier: str, agent_name: str):
         return client, actual_model_name
     else:
         # PRO TIER -> Use OpenRouter (Accesses Qwen, Mistral, Llama)
-        client = OpenAI(
-            api_key=os.environ.get("OPENROUTER_API_KEY"),
-            base_url="https://openrouter.ai/api/v1"
+client = OpenAI(
+            api_key=os.environ.get("NVIDIA_API_KEY"),
+            base_url="https://integrate.api.nvidia.com/v1"
         )
         return client, model_name
 
