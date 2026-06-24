@@ -11,7 +11,7 @@ from swarm_engine import run_swarm
 # 1. CONFIGURATION
 # ─────────────────────────────────────────────────────────────────────────────
 AGENCY_NAME = "Apex Swarm OS™"
-WHATSAPP_NUMBER = "919876543210" 
+WHATSAPP_NUMBER = "+919065262484" 
 UPGRADE_MESSAGE = "Hi! I want to upgrade to Apex Swarm Pro. Please share payment details."
 WHATSAPP_LINK = f"https://wa.me/{WHATSAPP_NUMBER}?text={UPGRADE_MESSAGE.replace(' ', '%20')}"
 FREE_TRIAL_CODE = "FREETRIAL"
