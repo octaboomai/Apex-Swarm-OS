@@ -18,7 +18,7 @@ print("[*] Initializing Apex Swarm OS™ (v20.0 - All-Rounder Sovereign Stack)..
 AGENT_MODELS = {
     "Master_Orchestrator": {
         "free": "groq/llama3-8b-8192", 
-        "pro": "mistralai/mixtral-8x22b-instruct-v0.1"  # Ultra-fast, elite routing on NVIDIA
+        "pro": "meta/llama-3.1-8b-instruct"            # CHANGED: Fast, active routing model on NVIDIA
     },
     "Apex_Researcher": {
         "free": "groq/llama-3.3-70b-versatile", 
