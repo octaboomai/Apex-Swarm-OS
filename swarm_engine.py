@@ -13,24 +13,24 @@ except ImportError:
 print("[*] Initializing Apex Swarm OS™ (v20.0 - All-Rounder Sovereign Stack)...")
 
 # ==============================================================================
-# 1. DYNAMIC AI BRAIN ROUTER (NVIDIA Sovereign Pro Stack)
+# 1. DYNAMIC AI BRAIN ROUTER 
 # ==============================================================================
 AGENT_MODELS = {
     "Master_Orchestrator": {
         "free": "groq/llama3-8b-8192", 
-        "pro": "meta/llama-3.1-8b-instruct"            # CHANGED: Fast, active routing model on NVIDIA
+        "pro": "meta/llama-3.1-8b-instruct"                    # Ultra-fast NVIDIA routing
     },
     "Apex_Researcher": {
         "free": "groq/llama-3.3-70b-versatile", 
-        "pro": "qwen/qwen2.5-72b-instruct"             # Best data parser & web reader on NVIDIA
+        "pro": "qwen/qwen3-next-80b-a3b-instruct"             # Qwen 3.5 MoE - Elite data parsing
     },
     "Apex_Strategist": {
         "free": "groq/llama-3.3-70b-versatile", 
-        "pro": "meta/llama-3.1-70b-instruct"            # Heavy hitter for writing strategy on NVIDIA
+        "pro": "meta/llama-3.1-70b-instruct"                  # Heavy hitter for writing strategy
     },
     "Apex_Coder": {
         "free": "groq/llama-3.3-70b-versatile", 
-        "pro": "meta/llama-3.1-70b-instruct"            # Elite logic & app builder on NVIDIA
+        "pro": "qwen/qwen3-next-80b-a3b-instruct"             # Qwen 3.5 MoE - ELITE CODING & DEBUGGING
     }
 }
 
@@ -112,18 +112,23 @@ AGENT_DEFS = {
     },
     "Apex_Coder": {
         "system_prompt": (
-            "You are an Apex Coder. You build fast, functional web artifacts.\n"
-            "RULES:\n"
-            "- If the user wants an app, dashboard, or UI, write a SINGLE FILE HTML app using Tailwind CSS (via CDN) and Vanilla JS.\n"
-            "- It must be fully self-contained and runnable in an iframe.\n"
-            "- Wrap the HTML code in ```html ... ``` markdown blocks.\n"
-            "- Save the output as 'final_answer' using `save_artifact`.\n"
-            "- Call `finish_task`."
+            "You are an Apex Coder and Elite Debugger. You use deep reasoning to build flawless applications and fix complex bugs.\n"
+            "WORKFLOW FOR BUILDING APPS:\n"
+            "1. Think step-by-step about the architecture before writing code.\n"
+            "2. Write a SINGLE FILE HTML app using Tailwind CSS (via CDN) and Vanilla JS.\n"
+            "3. It must be fully self-contained and runnable in an iframe.\n"
+            "4. Wrap the HTML code in ```html ... ``` markdown blocks.\n\n"
+            "WORKFLOW FOR DEBUGGING:\n"
+            "1. Analyze the provided code or error message carefully.\n"
+            "2. Identify the root cause of the bug using step-by-step logic.\n"
+            "3. Provide the fully corrected code, highlighting what was changed.\n"
+            "4. Wrap corrected code in the appropriate markdown blocks (e.g., ```python, ```javascript).\n\n"
+            "Save the output as 'final_answer' using `save_artifact`.\n"
+            "Call `finish_task`."
         ),
         "tools": ["save_artifact", "finish_task"],
         "allowed_transitions": []
     }
-}
 
 # ==============================================================================
 # 4. TOOL IMPLEMENTATIONS
