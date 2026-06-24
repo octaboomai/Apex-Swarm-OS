@@ -9,7 +9,7 @@ try:
 except ImportError:
     from duckduckgo_search import DDGS
 
-print("[*] Initializing Apex Swarm OS™ (v21.0 - NVIDIA Qwen Elite)...")
+print("[*] Initializing Apex Swarm OS™ (v22.0 - Token Economy)...")
 
 # ==============================================================================
 # 1. DYNAMIC AI BRAIN ROUTER (NVIDIA Qwen 3.5 Elite Stack)
@@ -51,7 +51,7 @@ def get_client_for_model(tier: str, agent_name: str):
         return client, model_name
 
 # ==============================================================================
-# 2. SHARED WORKSPACE
+# 2. SHARED WORKSPACE & TOKEN TRACKING
 # ==============================================================================
 class SwarmState:
     def __init__(self, query: str):
@@ -60,10 +60,16 @@ class SwarmState:
         self.artifacts = {}
         self.messages = []
         self.current_agent = None
+        self.tokens_used = 0  # NEW: Track total tokens consumed
 
     def add_artifact(self, key: str, value: str): self.artifacts[key] = value
     def get_artifact(self, key: str) -> str: return self.artifacts.get(key, "No data available.")
-    def to_dict(self): return {"plan": self.plan, "final_answer": self.artifacts.get("final_answer", "Error: No final answer generated."), "history": self.messages}
+    def to_dict(self): return {
+        "plan": self.plan, 
+        "final_answer": self.artifacts.get("final_answer", "Error: No final answer generated."), 
+        "history": self.messages,
+        "tokens_used": self.tokens_used  # Return tokens used to UI
+    }
 
 # ==============================================================================
 # 3. AGENT DEFINITIONS
@@ -185,7 +191,7 @@ def dispatch_tool_call(state: SwarmState, agent_name: str, agent_def: dict, func
 # ==============================================================================
 # 5. THE AGENTIC EXECUTION LOOP
 # ==============================================================================
-def execute_agent_loop(state: SwarmState, tier: str = "free", max_steps: int = 15) -> dict:
+def execute_agent_loop(state: SwarmState, tier: str = "free", max_output_tokens: int = 4096, max_steps: int = 15) -> dict:
     step = 0
     while step < max_steps:
         step += 1
@@ -200,7 +206,20 @@ def execute_agent_loop(state: SwarmState, tier: str = "free", max_steps: int = 1
         agent_tools = get_tool_schemas_for_agent(agent_name)
 
         try:
-            response = client.chat.completions.create(model=model_name, messages=api_messages, tools=agent_tools, tool_choice="auto", max_tokens=4000, temperature=0.3)
+            # Pass the user's manual max_output_tokens limit here
+            response = client.chat.completions.create(
+                model=model_name, 
+                messages=api_messages, 
+                tools=agent_tools, 
+                tool_choice="auto", 
+                max_tokens=max_output_tokens, 
+                temperature=0.3
+            )
+            
+            # NEW: Deduct the tokens used from the state wallet
+            if hasattr(response, 'usage') and response.usage:
+                state.tokens_used += response.usage.total_tokens
+                
         except Exception as e:
             error_str = str(e)
             if "failed_generation" in error_str and "<function=" in error_str:
@@ -244,9 +263,9 @@ def execute_agent_loop(state: SwarmState, tier: str = "free", max_steps: int = 1
 # ==============================================================================
 # 6. ENTRY POINT
 # ==============================================================================
-def run_swarm(user_prompt: str, tier: str = "free") -> dict:
-    print(f"\n[SWARM v21.0] Query: {user_prompt[:60]}... (Tier: {tier})")
+def run_swarm(user_prompt: str, tier: str = "free", max_output_tokens: int = 4096) -> dict:
+    print(f"\n[SWARM v22.0] Query: {user_prompt[:60]}... (Tier: {tier} | Max Output: {max_output_tokens})")
     state = SwarmState(query=user_prompt)
     state.current_agent = "Master_Orchestrator"
     state.messages.append({"role": "user", "content": f"Client Request: {user_prompt}\n\nPlease delegate this to the appropriate specialist."})
-    return execute_agent_loop(state, tier=tier)
+    return execute_agent_loop(state, tier=tier, max_output_tokens=max_output_tokens)
