@@ -13,24 +13,24 @@ except ImportError:
 print("[*] Initializing Apex Swarm OS™ (v20.0 - All-Rounder Sovereign Stack)...")
 
 # ==============================================================================
-# 1. DYNAMIC AI BRAIN ROUTER (Sovereign Pro Stack - Verified Models)
+# 1. DYNAMIC AI BRAIN ROUTER (NVIDIA Sovereign Pro Stack)
 # ==============================================================================
 AGENT_MODELS = {
     "Master_Orchestrator": {
         "free": "groq/llama3-8b-8192", 
-        "pro": "mistralai/mistral-small-4-119b-2603"  # Ultra-fast routing
+        "pro": "mistralai/mixtral-8x22b-instruct-v0.1"  # Ultra-fast, elite routing on NVIDIA
     },
     "Apex_Researcher": {
         "free": "groq/llama-3.3-70b-versatile", 
-        "pro": "qwen/qwen3-next-80b-a3b-instruct"     # Best data parser & web reader
+        "pro": "qwen/qwen2.5-72b-instruct"             # Best data parser & web reader on NVIDIA
     },
     "Apex_Strategist": {
         "free": "groq/llama-3.3-70b-versatile", 
-        "pro": "meta/llama-3.1-70b-instruct"          # Elite writer & strategist
+        "pro": "meta/llama-3.1-70b-instruct"            # Heavy hitter for writing strategy on NVIDIA
     },
     "Apex_Coder": {
         "free": "groq/llama-3.3-70b-versatile", 
-        "pro": "meta/llama-3.1-70b-instruct"          # Elite logic & app builder
+        "pro": "meta/llama-3.1-70b-instruct"            # Elite logic & app builder on NVIDIA
     }
 }
 
@@ -47,8 +47,8 @@ def get_client_for_model(tier: str, agent_name: str):
         actual_model_name = model_name.replace("groq/", "")
         return client, actual_model_name
     else:
-        # PRO TIER -> Use OpenRouter (Accesses Qwen, Mistral, Llama)
-client = OpenAI(
+        # PRO TIER -> Use NVIDIA API (build.nvidia.com)
+        client = OpenAI(
             api_key=os.environ.get("NVIDIA_API_KEY"),
             base_url="https://integrate.api.nvidia.com/v1"
         )
