@@ -2,44 +2,41 @@ import os
 import json
 import re
 from typing import List, Dict
-from openai import OpenAI # Using OpenAI SDK for both Groq and OpenRouter
+from openai import OpenAI
 
-# FIX: Handle the DDGS package rename gracefully
 try:
     from ddgs import DDGS
 except ImportError:
     from duckduckgo_search import DDGS
 
-print("[*] Initializing Apex Swarm OS™ (v20.0 - All-Rounder Sovereign Stack)...")
+print("[*] Initializing Apex Swarm OS™ (v21.0 - NVIDIA Qwen Elite)...")
 
 # ==============================================================================
-# 1. DYNAMIC AI BRAIN ROUTER 
+# 1. DYNAMIC AI BRAIN ROUTER (NVIDIA Qwen 3.5 Elite Stack)
 # ==============================================================================
 AGENT_MODELS = {
     "Master_Orchestrator": {
         "free": "groq/llama3-8b-8192", 
-        "pro": "meta/llama-3.1-8b-instruct"                    # Ultra-fast NVIDIA routing
+        "pro": "meta/llama-3.1-8b-instruct"
     },
     "Apex_Researcher": {
         "free": "groq/llama-3.3-70b-versatile", 
-        "pro": "qwen/qwen3-next-80b-a3b-instruct"             # Qwen 3.5 MoE - Elite data parsing
+        "pro": "qwen/qwen3-next-80b-a3b-instruct"
     },
     "Apex_Strategist": {
         "free": "groq/llama-3.3-70b-versatile", 
-        "pro": "meta/llama-3.1-70b-instruct"                  # Heavy hitter for writing strategy
+        "pro": "meta/llama-3.1-70b-instruct"
     },
     "Apex_Coder": {
         "free": "groq/llama-3.3-70b-versatile", 
-        "pro": "qwen/qwen3-next-80b-a3b-instruct"             # Qwen 3.5 MoE - ELITE CODING & DEBUGGING
+        "pro": "qwen/qwen3-next-80b-a3b-instruct"
     }
 }
 
 def get_client_for_model(tier: str, agent_name: str):
-    """Routes to the correct API provider based on user tier and agent role."""
     model_name = AGENT_MODELS.get(agent_name, {}).get(tier, "groq/llama-3.3-70b-versatile")
     
     if "groq" in model_name:
-        # FREE TIER -> Use Groq
         client = OpenAI(
             api_key=os.environ.get("GROQ_API_KEY"), 
             base_url="https://api.groq.com/openai/v1"
@@ -47,7 +44,6 @@ def get_client_for_model(tier: str, agent_name: str):
         actual_model_name = model_name.replace("groq/", "")
         return client, actual_model_name
     else:
-        # PRO TIER -> Use NVIDIA API (build.nvidia.com)
         client = OpenAI(
             api_key=os.environ.get("NVIDIA_API_KEY"),
             base_url="https://integrate.api.nvidia.com/v1"
@@ -70,7 +66,7 @@ class SwarmState:
     def to_dict(self): return {"plan": self.plan, "final_answer": self.artifacts.get("final_answer", "Error: No final answer generated."), "history": self.messages}
 
 # ==============================================================================
-# 3. AGENT DEFINITIONS (The All-Rounder Roster)
+# 3. AGENT DEFINITIONS
 # ==============================================================================
 AGENT_DEFS = {
     "Master_Orchestrator": {
@@ -129,6 +125,7 @@ AGENT_DEFS = {
         "tools": ["save_artifact", "finish_task"],
         "allowed_transitions": []
     }
+}
 
 # ==============================================================================
 # 4. TOOL IMPLEMENTATIONS
@@ -248,7 +245,7 @@ def execute_agent_loop(state: SwarmState, tier: str = "free", max_steps: int = 1
 # 6. ENTRY POINT
 # ==============================================================================
 def run_swarm(user_prompt: str, tier: str = "free") -> dict:
-    print(f"\n[SWARM v20.0] Query: {user_prompt[:60]}... (Tier: {tier})")
+    print(f"\n[SWARM v21.0] Query: {user_prompt[:60]}... (Tier: {tier})")
     state = SwarmState(query=user_prompt)
     state.current_agent = "Master_Orchestrator"
     state.messages.append({"role": "user", "content": f"Client Request: {user_prompt}\n\nPlease delegate this to the appropriate specialist."})
