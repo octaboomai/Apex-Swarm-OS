@@ -11,9 +11,10 @@ from swarm_engine import run_swarm
 # 1. CONFIGURATION
 # ─────────────────────────────────────────────────────────────────────────────
 AGENCY_NAME = "Apex Swarm OS™"
-WHATSAPP_NUMBER = "+919065262484" 
-UPGRADE_MESSAGE = "Hi! I want to upgrade to Apex Swarm Pro. Please share payment details."
+WHATSAPP_NUMBER = "919876543210"  # CHANGE THIS TO YOUR WHATSAPP NUMBER
+UPGRADE_MESSAGE = "Hi! I want to buy 10,000 Apex tokens. Please share payment details."
 WHATSAPP_LINK = f"https://wa.me/{WHATSAPP_NUMBER}?text={UPGRADE_MESSAGE.replace(' ', '%20')}"
+
 FREE_TRIAL_CODE = "FREETRIAL"
 PRO_UNLOCK_CODE = "APEX_PRO_2024"
 
@@ -48,9 +49,11 @@ html, body, [data-testid="stAppViewContainer"] { background: #09090b !important;
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3. ACCESS GATE
+# 3. ACCESS GATE & TOKEN ALLOCATION
 # ─────────────────────────────────────────────────────────────────────────────
 if "access_tier" not in st.session_state: st.session_state.access_tier = None
+if "token_balance" not in st.session_state: st.session_state.token_balance = 0 # START AT 0
+if "max_output_tokens" not in st.session_state: st.session_state.max_output_tokens = 4096
 
 if st.session_state.access_tier is None:
     st.markdown(f"""
@@ -63,36 +66,56 @@ if st.session_state.access_tier is None:
     st.markdown("### 🔒 Private Access Portal")
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("#### Free Trial Access")
+        st.markdown("#### Free Trial (500 Tokens)")
         free_code = st.text_input("Enter Free Trial Code:", key="free_code")
         if st.button("Unlock Free Trial"):
-            if free_code == FREE_TRIAL_CODE: st.session_state.access_tier = "free"; st.rerun()
+            if free_code == FREE_TRIAL_CODE: 
+                st.session_state.access_tier = "free"
+                st.session_state.token_balance = 500 # GIVE EXACTLY 500 TOKENS FOR FREE
+                st.rerun()
             else: st.error("Invalid Free Trial Code.")
     with col2:
-        st.markdown("#### Pro Unlimited Access")
-        st.markdown(f'<a href="{WHATSAPP_LINK}" target="_blank" class="whatsapp-btn">💬 Upgrade via WhatsApp</a>', unsafe_allow_html=True)
+        st.markdown("#### Pro Access (10,000 Tokens)")
+        st.markdown(f'<a href="{WHATSAPP_LINK}" target="_blank" class="whatsapp-btn">💬 Buy 10K Tokens via WhatsApp</a>', unsafe_allow_html=True)
         pro_code = st.text_input("Enter Pro Code (sent via WhatsApp):", key="pro_code")
         if st.button("Unlock Pro"):
-            if pro_code == PRO_UNLOCK_CODE: st.session_state.access_tier = "pro"; st.rerun()
+            if pro_code == PRO_UNLOCK_CODE: 
+                st.session_state.access_tier = "pro"
+                st.session_state.token_balance = 10000 # GIVE 10,000 TOKENS AFTER PAYMENT
+                st.rerun()
             else: st.error("Invalid Pro Code.")
     st.stop()
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 4. SIDEBAR & DEAL ROOM
+# 4. SIDEBAR, TOKEN WALLET & DEAL ROOM
 # ─────────────────────────────────────────────────────────────────────────────
 if "document_context" not in st.session_state: st.session_state.document_context = ""
 
 with st.sidebar:
     st.markdown(f"**👤 Tier: {st.session_state.access_tier.upper()}**")
-    if st.session_state.access_tier == 'free':
-        st.warning("🆓 Free Trial Active")
-        st.markdown("---")
-        st.markdown(f'<a href="{WHATSAPP_LINK}" target="_blank" class="whatsapp-btn" style="width: 100%; text-align: center; display: block;">💬 Upgrade via WhatsApp</a>', unsafe_allow_html=True)
-        pro_code_sidebar = st.text_input("Enter Pro Code to upgrade:")
-        if st.button("Unlock Pro"):
-            if pro_code_sidebar == PRO_UNLOCK_CODE: st.session_state.access_tier = 'pro'; st.rerun()
-            elif pro_code_sidebar: st.error("Invalid Pro Code.")
-    else: st.success("♾️ Unlimited Pro Access")
+    
+    # TOKEN WALLET UI
+    st.markdown("---")
+    st.markdown("<h3 style='color: #fafafa; font-weight: 600;'>💰 Token Wallet</h3>", unsafe_allow_html=True)
+    
+    # Display Balance
+    st.metric(label="Remaining Tokens", value=f"{st.session_state.token_balance:,}")
+    
+    # Manual Token Limit Slider
+    st.markdown("**Manual AI Limit:**")
+    st.markdown("<small>Control how many tokens the AI can use per response.</small>", unsafe_allow_html=True)
+    st.session_state.max_output_tokens = st.slider(
+        "Max Tokens per Response", 
+        min_value=500, 
+        max_value=8192, 
+        value=st.session_state.max_output_tokens, 
+        step=500
+    )
+    
+    # Buy More Tokens (WhatsApp)
+    if st.session_state.token_balance < 2000:
+        st.warning("⚠️ Token balance low!")
+    st.markdown(f'<a href="{WHATSAPP_LINK}" target="_blank" class="whatsapp-btn" style="width: 100%; text-align: center; display: block; font-size: 12px;">💬 Buy 10K Tokens</a>', unsafe_allow_html=True)
 
     st.divider()
     st.markdown("<h3 style='color: #fafafa; font-weight: 600;'>📂 Secure Context Room</h3>", unsafe_allow_html=True)
@@ -115,7 +138,7 @@ st.markdown(f"""
 <div class="agency-header">
     <div class="agency-logo">⚡</div>
     <p class="agency-title">{AGENCY_NAME}</p>
-    <p class="agency-sub">Orchestrator Active · All-Rounder Specialists Standing By</p>
+    <p class="agency-sub">Orchestrator Active · Wallet Connected</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -128,7 +151,6 @@ for msg in st.session_state.messages:
             st.markdown(f'<div class="route-pill"><span class="route-dot"></span>{route_text}</div>', unsafe_allow_html=True)
         
         content = msg["content"]
-        # RENDER HTML ARTIFACTS IN HISTORY
         if "```html" in content and "```" in content:
             html_code = content.split("```html")[1].split("```")[0].strip()
             with st.expander("💻 View Generated Code"): st.code(html_code, language="html")
@@ -143,7 +165,7 @@ for msg in st.session_state.messages:
         else: st.markdown(content)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 6. CHAT INPUT & ARTIFACT EXECUTION
+# 6. CHAT INPUT & TOKEN EXECUTION
 # ─────────────────────────────────────────────────────────────────────────────
 if prompt := st.chat_input("Ask for Research, Strategy, or Build an App..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -154,18 +176,36 @@ if prompt := st.chat_input("Ask for Research, Strategy, or Build an App..."):
         full_prompt = f"CONTEXT PROVIDED BY USER:\n\n{st.session_state.document_context}\n\nUSER REQUEST: {prompt}"
 
     with st.chat_message("assistant"):
+        # 1. CHECK IF USER HAS ENOUGH TOKENS
+        if st.session_state.token_balance <= 0:
+            st.error("🚫 **Out of Tokens!** You do not have enough tokens to generate a response. Please purchase more via the WhatsApp link in the sidebar.")
+            st.stop()
+            
         with st.spinner("Apex Swarm is orchestrating..."):
-            try: result = run_swarm(full_prompt, tier=st.session_state.access_tier)
-            except Exception as e: result = {"plan": [], "final_answer": f"⚠️ Critical Error: `{e}`"}
+            try: 
+                result = run_swarm(
+                    full_prompt, 
+                    tier=st.session_state.access_tier, 
+                    max_output_tokens=st.session_state.max_output_tokens
+                )
+            except Exception as e: 
+                result = {"plan": [], "final_answer": f"⚠️ Critical Error: `{e}`", "tokens_used": 0}
+        
+        # 2. DEDUCT TOKENS FROM WALLET
+        tokens_consumed = result.get("tokens_used", 0)
+        st.session_state.token_balance -= tokens_consumed
+        if st.session_state.token_balance < 0: st.session_state.token_balance = 0
         
         clean_route = list(dict.fromkeys(result.get("plan", [])))
+        
+        # 3. Display Route and Token Cost
         if clean_route:
             route_text = " ➔ ".join(clean_route)
-            st.markdown(f'<div class="route-pill"><span class="route-dot"></span>{route_text}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="route-pill"><span class="route-dot"></span>{route_text} | 💸 Cost: {tokens_consumed} tokens</div>', unsafe_allow_html=True)
 
         final_output = result.get("final_answer", "Swarm failed.")
         
-        # LIVE ARTIFACT RENDERING ENGINE
+        # 4. LIVE ARTIFACT RENDERING ENGINE
         if "```html" in final_output and "```" in final_output:
             html_code = final_output.split("```html")[1].split("```")[0].strip()
             with st.expander("💻 View Generated Code"): st.code(html_code, language="html")
