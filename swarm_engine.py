@@ -74,6 +74,13 @@ class SwarmState:
         self.messages = []
         self.current_agent = None
         self.tokens_used = 0  # Track total tokens consumed
+        self.tokens_by_agent = {}  # fix: per-agent breakdown, for diagnosing
+                                    # "high token cost, thin output" cases
+        self.has_searched = False  # fix: tracks whether Apex_Researcher has
+                                    # actually called tool_web_search yet --
+                                    # used to make searching mandatory at the
+                                    # code level instead of hoping the model
+                                    # follows optional prompt wording
 
     def add_artifact(self, key: str, value: str): self.artifacts[key] = value
     def get_artifact(self, key: str) -> str: return self.artifacts.get(key, "No data available.")
@@ -81,7 +88,8 @@ class SwarmState:
         "plan": self.plan,
         "final_answer": self.artifacts.get("final_answer", "Error: No final answer generated."),
         "history": self.messages,
-        "tokens_used": self.tokens_used
+        "tokens_used": self.tokens_used,
+        "tokens_by_agent": self.tokens_by_agent
     }
 
 # ==============================================================================
@@ -104,7 +112,9 @@ AGENT_DEFS = {
         "system_prompt": (
             "You are an Apex Researcher. Gather raw intelligence at lightning speed.\n"
             "WORKFLOW:\n"
-            "1. Call `tool_web_search` if you need live data.\n"
+            "1. Call `tool_web_search` at least once. Always -- even if you think you already "
+            "know the answer, your training data may predate recent developments, so verify "
+            "with a live search before reporting anything as fact.\n"
             "2. Extract specific facts, numbers, and names. No fluff.\n"
             "3. Save findings using `save_artifact` with key 'research_data'.\n"
             "4. Delegate to Apex_Strategist to format the final answer.\n"
@@ -124,7 +134,13 @@ AGENT_DEFS = {
             "3. Save it as 'final_answer' using `save_artifact`.\n"
             "4. Call `finish_task`.\n\n"
             "FORMAT RULES (this is rendered as real Markdown, not shown as plain text -- use it):\n"
-            "- Open with ONE bolded sentence that directly answers the question. No preamble.\n"
+            "- Open with ONE bolded sentence that directly answers the question. No preamble. "
+            "This is the FIRST line of a longer answer, not the entire answer -- always continue "
+            "into the sections below after it.\n"
+            "- A single sentence is NEVER a complete final answer to a 'tell me about X' or "
+            "'give me details' style question, even if research_data is thin. If the research "
+            "is limited, say so explicitly in a section (e.g. '## ⚠️ Limited Information') and "
+            "share whatever was actually found -- don't collapse everything into one vague line.\n"
             "- Break the body into sections using `## ` headers. Choose headers that fit THIS "
             "answer -- don't force unrelated content into a fixed template.\n"
             "  * For a factual/research question about a product, company, or technology, "
@@ -145,7 +161,10 @@ AGENT_DEFS = {
             "- Never invent a specific number, date, or quote (benchmark scores, prices, "
             "funding figures) that isn't actually in `research_data`. If the research doesn't "
             "cover a detail, say so plainly instead of making one up -- a wrong number is worse "
-            "than an honest gap."
+            "than an honest gap.\n"
+            "- Never repeat a fact, sentence, or section you've already written. If you notice "
+            "yourself about to restate something, stop the section there instead -- a shorter "
+            "answer that doesn't loop is better than a long one that does."
         ),
         "tools": ["read_artifact", "save_artifact", "finish_task"],
         "allowed_transitions": []
@@ -182,7 +201,15 @@ def tool_web_search(query: str) -> str:
         with DDGS(timeout=10) as ddgs:
             results = list(ddgs.text(clean_query, region="wt-wt", safesearch="off", max_results=5))
         if not results: return "LIVE SEARCH FAILED: No results found."
-        return "\n".join(f"[{i+1}] {r.get('title', '')}: {r.get('body', '')}" for i, r in enumerate(results))
+        # fix: cap each snippet's length. Untruncated search bodies can
+        # balloon the shared context every downstream agent reads from --
+        # a noisy wall of raw search text is a likely contributor to
+        # rambling/repetitive output in Long Context runs, especially once
+        # it's been carried through Researcher -> Strategist.
+        def _trim(text: str, limit: int = 280) -> str:
+            text = " ".join(text.split())
+            return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + "…"
+        return "\n".join(f"[{i+1}] {r.get('title', '')}: {_trim(r.get('body', ''))}" for i, r in enumerate(results))
     except Exception as e:
         return f"LIVE SEARCH FAILED: Search engine error ({e})."
 
@@ -218,6 +245,15 @@ def dispatch_tool_call(state: SwarmState, agent_name: str, agent_def: dict, func
             return f"CRITICAL ERROR: You cannot delegate to yourself! You are {agent_name}.", False
         if next_agent not in agent_def["allowed_transitions"]:
             return f"ERROR: You cannot delegate to {next_agent}.", False
+        # fix: this is the actual root cause of the "9426 tokens, one
+        # sentence" result. Apex_Researcher's old prompt made searching
+        # optional ("if you need live data"), so a model that assumed it
+        # already knew the answer could skip straight to delegating with
+        # no real research_data -- leaving Apex_Strategist nothing to work
+        # with. Enforcing this here means it no longer depends on the model
+        # choosing to follow that instruction.
+        if agent_name == "Apex_Researcher" and not state.has_searched:
+            return "ERROR: You must call tool_web_search at least once before delegating to Apex_Strategist. Search first, then delegate.", False
         state.current_agent = next_agent
         handoff_note = func_args.get("message", "")
         return f"Control handed over to {next_agent}. Handoff note from {agent_name}: {handoff_note}", False
@@ -240,6 +276,10 @@ def dispatch_tool_call(state: SwarmState, agent_name: str, agent_def: dict, func
         query = func_args.get("query")
         if not query:
             return "ERROR: tool_web_search requires a 'query' argument.", False
+        state.has_searched = True  # fix: mark searched even if the search
+                                    # itself comes back empty/failed -- the
+                                    # requirement is that an attempt was
+                                    # made, not that it succeeded
         return tool_web_search(query), False
 
     elif func_name == "finish_task":
@@ -283,6 +323,33 @@ def extract_self_healed_call(error_str: str):
 
     return func_name, func_args
 
+
+def extract_tool_validation_error(error_str: str):
+    """
+    A second, different malformed-tool-call shape than extract_self_healed_call
+    handles. Groq's schema-validation rejections come back as a clean
+    `tool_use_failed` error with NO `<function=...>` wrapper at all, e.g.:
+
+        Error code: 400 - {'error': {'message': "...did not match schema:
+        errors: [missing properties: 'query']", 'code': 'tool_use_failed',
+        'failed_generation': '{"name": "tool_web_search", "arguments":
+        {"cursor": 5, "id": 1}}'}}
+
+    Here the model didn't almost get it right (like the HTML case) -- it
+    invented parameters that don't exist in the schema and omitted the
+    required one. There's nothing safe to "repair" in the arguments, so
+    instead of trying to dispatch a guessed call, this pulls out which tool
+    was attempted and why it was rejected, so the model can be told exactly
+    what to fix and try again.
+    """
+    name_match = re.search(r'"name":\s*"(\w+)"', error_str)
+    func_name = name_match.group(1) if name_match else None
+
+    msg_match = re.search(r"'message':\s*[\"'](.+?)[\"'],\s*'type'", error_str, re.DOTALL)
+    message = msg_match.group(1) if msg_match else error_str
+
+    return func_name, message
+
 # ==============================================================================
 # 5. THE AGENTIC EXECUTION LOOP
 # ==============================================================================
@@ -319,7 +386,10 @@ def execute_agent_loop(state: SwarmState, tier: str = "free", max_output_tokens:
             )
 
             if hasattr(response, 'usage') and response.usage:
-                state.tokens_used += response.usage.total_tokens
+                used = response.usage.total_tokens
+                state.tokens_used += used
+                state.tokens_by_agent[agent_name] = state.tokens_by_agent.get(agent_name, 0) + used
+                print(f"    [TOKENS] {agent_name} used {used} this call ({state.tokens_by_agent[agent_name]} total for this agent)")
 
         except Exception as e:
             error_str = str(e)
@@ -342,6 +412,20 @@ def execute_agent_loop(state: SwarmState, tier: str = "free", max_output_tokens:
                 else:
                     state.add_artifact("final_answer", f"⚠️ Swarm API Error (could not self-heal malformed call): {e}")
                     return state.to_dict()
+            elif "tool_use_failed" in error_str or "did not match schema" in error_str:
+                # This is the 400 from the screenshot: a clean schema-validation
+                # rejection with no <function=> wrapper, so the block above
+                # never matches it. Give the model specific, correctable
+                # feedback and let it retry instead of aborting the run.
+                func_name, message = extract_tool_validation_error(error_str)
+                print(f"    [SELF-HEAL] Tool call rejected for '{func_name}': {message[:200]}")
+                feedback = (
+                    f"Your previous call to `{func_name}` was rejected by the API: {message} "
+                    f"Re-check that tool's required parameters and call it again with all of "
+                    f"them filled in correctly -- do not invent parameter names that don't exist."
+                )
+                state.messages.append({"role": "user", "content": feedback})
+                continue
             elif "429" in error_str or "rate_limit" in error_str.lower():
                 state.add_artifact("final_answer", "⚠️ **Swarm is at Capacity:** High traffic. Please wait 60 seconds or upgrade to Pro for priority."); return state.to_dict()
             state.add_artifact("final_answer", f"⚠️ Swarm API Error: {e}"); return state.to_dict()
